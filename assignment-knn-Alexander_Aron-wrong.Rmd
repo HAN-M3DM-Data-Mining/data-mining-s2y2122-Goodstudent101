@@ -1,0 +1,89 @@
+---
+title: "Assigment - kNN DIY"
+author:
+  - name author here - Alexander Haijkers
+  - name reviewer here - 
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+   html_notebook:
+    toc: true
+    toc_depth: 2
+---
+
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(class)
+library(caret)
+library("ggplot2")
+```
+
+---
+
+## Business Understanding
+A hospital wants to see if checked out patients are still counted as occupying rooms in the hospital. They have access to real time data coming from their hospital rooms and want a model that lets them predict whether there is someone in the room based on that information. They want this to work regardless of the season.
+
+## Data Understanding
+```{r}
+url <- "https://raw.githubusercontent.com/HAN-M3DM-Data-Mining/data-mining-s2y2122-Goodstudent101/master/datasets/KNN-occupancy.csv"
+rawDF= read_csv(url)
+
+```
+the data shown has 7 variables pertaining to hospital rooms. Since the model we want to create has to work regardless of season or freak weather, we must first look at what values correlate to occupancy while accounting for temperature and date.
+
+
+## Data Preparation
+first we have to see what variable has a significant correlation to the occupancy of a room. We do this by making a model while accounting for the other variables to make sure the correlation isnt influenced by other circumstances.
+```{r}
+model1<-lm( date ~ Light + Humidity + Temperature + Occupancy + HumidityRatio,data=rawDF)
+summary(model1)
+```
+
+From this, we can see that everything besides humidity has a correlation to the occupancy. Since Temperature can fluctuate wildly based on the seasons and Date has a weak correlation to occupancy, we will use CO2 and Light to base or model on. For this we will remove the other variables from the data.
+ 
+
+```{r}
+cleanDF <- rawDF[c(-1,-2,-3,-5)]
+head(cleanDF)
+```
+
+because many models require the variable that we want to focus on to be a factor we change the occupancy variable into a factor.
+```{r}
+cntOccu <- table(cleanDF$Occupancy)
+propOccu <- round(prop.table(cntOccu) * 100 , digits = 1)
+cleanDF$Occupancy <- factor(cleanDF$Occupancy, levels = c(0, 1))
+cleanDF$Occupancy <- factor(cleanDF$Occupancy, levels = c(0, 1))
+```
+
+We divide the data twice, once to train the knn function and once to test if it is successful in predicting occupancy based on light and Co2.
+
+```{r}
+trainDF_feat <- cleanDF[1:471,  ]
+testDF_feat <- cleanDF[471:843,  ]
+trainDF_labels <- cleanDF[1:471,  2]
+testDF_labels <- cleanDF[471:843,  2]
+
+```
+
+
+## Modeling
+
+Now we have come to the final part, training and presenting our model.
+```{r}
+cleanDF_occupancy_pred <- knn(train = as.matrix(trainDF_feat), test = as.matrix(testDF_feat), cl = as.matrix(trainDF_labels), k = 21)
+head(cleanDF_occupancy_pred)
+
+
+```
+
+
+
+## Evaluation and Deployment
+text and code here
+```{r}
+confusionMatrix(cleanDF_occupancy_pred, testDF_labels[[2]], positive = NULL, dnn = c("Prediction", "True"))
+```
+As you can see, or model is remarkably accurate, especially when it comes to detecting that an empty room is in fact empty, only getting it wrong 2 out of 3462 times it predicted the room was empty. This is great since you do not want to deal with the annoyance of having a program switch the lights off in the room you are working in. This caution does come at a slight cost, since in the 610 times it predicted there was someone in the room, it was wrong 24 times, which could rack up a electricity bill if the model was connected to the lights.
+
+reviewer adds suggestions for improving the model
